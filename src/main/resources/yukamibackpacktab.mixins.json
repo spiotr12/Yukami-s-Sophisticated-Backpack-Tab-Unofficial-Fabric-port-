@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.yukami.backpacktab.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AbstractContainerScreenAccessor",
+		"AbstractContainerScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

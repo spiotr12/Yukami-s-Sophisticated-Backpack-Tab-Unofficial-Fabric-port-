@@ -1,54 +1,77 @@
 plugins {
-	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 }
 
-repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
+version = "${project.minecraft_version}-${project.mod_version}"
+group = project.mod_group_id
+
+base {
+	archivesName = project.mod_id
 }
 
-loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"modid" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
+repositories {
+	maven { url = 'https://maven.fabricmc.net/' }
+	// Modrinth maven hosts the Fabric ports of Sophisticated Core / Sophisticated Backpacks.
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
 		}
 	}
 }
 
 dependencies {
-	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Required mods (Fabric ports), addressed by Modrinth project id: Sophisticated Backpacks / Sophisticated Core
+	modImplementation "maven.modrinth:ouNrBQtq:${project.sophisticated_backpacks_version}"
+	modImplementation "maven.modrinth:9jxwkYQL:${project.sophisticated_core_version}"
+	// Needed by Sophisticated Core at runtime
+	modImplementation "maven.modrinth:forge-config-api-port:${project.forge_config_api_port_version}"
+
+	// Needed by Sophisticated Core at runtime
+	modImplementation "teamreborn:energy:${project.energy_version}"
+
+	testImplementation 'junit:junit:4.13.2'
 }
 
 processResources {
-	def version = project.version
-	inputs.property "version", version
+	def props = [
+		version             : project.mod_version,
+		mod_id              : project.mod_id,
+		mod_name            : project.mod_name,
+		mod_description     : project.mod_description,
+		mod_license         : project.mod_license,
+		mod_authors         : project.mod_authors,
+		minecraft_version   : project.minecraft_version,
+		loader_version      : project.loader_version
+	]
+	inputs.properties props
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand props
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
+	it.options.encoding = 'UTF-8'
+}
+
+test {
+	useJUnit()
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
 	sourceCompatibility = JavaVersion.VERSION_21
@@ -56,27 +79,16 @@ java {
 }
 
 jar {
-	def projectName = project.name
-	inputs.property "projectName", projectName
-
+	def modId = project.mod_id
 	from("LICENSE") {
-		rename { "${it}_$projectName"}
+		rename { "${it}_${modId}" }
 	}
 }
 
-// configure the maven publication
 publishing {
 	publications {
 		create("mavenJava", MavenPublication) {
 			from components.java
 		}
-	}
-
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }
