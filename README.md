@@ -1,5 +1,7 @@
 # Yukami's Sophisticated Backpack Tab - Fabric port (Minecraft 1.21.1)
 
+**ALL THE CREDITS GO TO [Yukami](https://github.com/domanhthang2110). I just port it to fabric using AI.** 
+
 Unofficial Fabric port of [Yukami's Sophisticated Backpack Tab](https://github.com/domanhthang2110/yukamibackpacktab/tree/1.21.1) (NeoForge original).
 It is a **client-only** mod that adds tabs to inventory/container screens for switching to your equipped Sophisticated Backpack.
 
