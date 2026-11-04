@@ -181,12 +181,26 @@ public final class TabManager {
             return true;
         }
 
+        if (isSophisticatedStorageBlock(blockState.getBlock())) {
+            return true;
+        }
+
         try {
-            return blockState.getMenuProvider(world, pos) != null;
+            return blockState.getMenuProvider(world, pos) != null
+                    || world.getBlockEntity(pos) instanceof net.minecraft.world.MenuProvider;
         } catch (Exception e) {
             YukamiBackpackTab.LOGGER.debug("Failed to inspect menu provider at {}", pos, e);
             return false;
         }
+    }
+
+    /**
+     * Sophisticated Storage (optional) opens its screens from a custom use handler instead of exposing a menu
+     * provider, so it is detected by registry namespace to avoid a hard dependency on the mod.
+     */
+    public static boolean isSophisticatedStorageBlock(Block block) {
+        return "sophisticatedstorage".equals(
+                net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).getNamespace());
     }
 
     private static boolean isBackpackBlock(Level world, BlockPos pos) {

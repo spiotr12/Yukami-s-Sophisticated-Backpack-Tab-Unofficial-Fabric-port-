@@ -63,6 +63,17 @@ public final class ContainerTab implements InventoryTab {
                     }
                 }
 
+                if (TabManager.isSophisticatedStorageBlock(blockState.getBlock())) {
+                    try {
+                        ItemStack picked = blockState.getBlock().getCloneItemStack(world, containerPos, blockState);
+                        if (!picked.isEmpty()) {
+                            return picked;
+                        }
+                    } catch (Exception e) {
+                        YukamiBackpackTab.LOGGER.debug("Failed to resolve storage icon at {}", containerPos, e);
+                    }
+                }
+
                 return new ItemStack(blockState.getBlock());
             }
         }

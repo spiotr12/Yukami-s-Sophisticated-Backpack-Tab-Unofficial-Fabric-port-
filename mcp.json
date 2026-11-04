@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "jetbrains": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:64342/stream",
+      "headers": {
+        "IJ_MCP_SERVER_PROJECT_PATH": "C:/Projects/yukamis-sophisticated-backpack-tab-unofficial-fabric-port"
+      }
+    }
+  }
+}
