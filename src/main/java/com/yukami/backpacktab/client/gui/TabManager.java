@@ -388,6 +388,11 @@ public final class TabManager {
     }
 
     private static boolean allowMouseRelease(AbstractContainerScreen<?> containerScreen, int button) {
+        // Always end an offset-editor drag, even if the press was consumed (it always is in editor mode).
+        if (TabOffsetEditor.isEnabledFor(containerScreen)) {
+            TabOffsetEditor.handleMouseReleased(containerScreen, button);
+        }
+
         if (consumedMouseButtons.remove(button)) {
             return false;
         }
@@ -397,7 +402,6 @@ public final class TabManager {
         }
 
         if (TabOffsetEditor.isEnabledFor(containerScreen)) {
-            TabOffsetEditor.handleMouseReleased(containerScreen, button);
             return false;
         }
         return true;
