@@ -39,7 +39,17 @@ public final class TabConfig {
          * The worn backpack always has a tab. Backpacks opened from the inventory, and the backpacks inside an open
          * backpack that has an inception upgrade, get a tab for as long as they are open.
          */
-        INCEPTION_ONLY
+        INCEPTION_ONLY,
+        /**
+         * Like {@link #INCEPTION_ONLY}, and additionally every carried backpack with an inception upgrade has a
+         * tab. Worn backpacks come first.
+         */
+        ANY_INCEPTION;
+
+        /** Whether the backpacks inside an open backpack get tabs. */
+        public boolean usesInceptionTabs() {
+            return this == INCEPTION_ONLY || this == ANY_INCEPTION;
+        }
     }
 
     private static final String CLIENT_CONFIG_FILE_NAME = "yukamibackpacktab-client.json";

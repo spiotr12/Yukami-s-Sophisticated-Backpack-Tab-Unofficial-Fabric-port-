@@ -148,8 +148,7 @@ public final class BackpackTab implements InventoryTab {
         }
 
         // Only the tab of the backpack that is itself shown is selected, not the ones of backpacks inside it.
-        if (TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.INCEPTION_ONLY
-                && InceptionTabs.hasOpenBackpack()) {
+        if (TabConfig.getBackpackTabMode().usesInceptionTabs() && InceptionTabs.hasOpenBackpack()) {
             return InceptionTabs.isRootCurrent(this);
         }
 

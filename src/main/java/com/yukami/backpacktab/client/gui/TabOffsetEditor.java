@@ -370,6 +370,7 @@ public final class TabOffsetEditor {
             case SINGLE_WORN -> "Single worn backpack";
             case ANY -> "Any backpack";
             case INCEPTION_ONLY -> "Inception upgrade only";
+            case ANY_INCEPTION -> "Any backpack with inception";
         };
     }
 

@@ -101,7 +101,7 @@ public final class TabManager {
     public static List<InventoryTab> getAvailableTabs(Player player, AbstractContainerScreen<?> screen) {
         List<InventoryTab> tabs = new ArrayList<>();
 
-        List<InventoryTab> backpackTabs = TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.INCEPTION_ONLY
+        List<InventoryTab> backpackTabs = TabConfig.getBackpackTabMode().usesInceptionTabs()
                 ? getInceptionTabs(player, screen)
                 : new ArrayList<>(getBackpackTabs(player));
         if (backpackTabs.isEmpty()) {
@@ -140,8 +140,18 @@ public final class TabManager {
             InceptionTabs.reset();
         }
 
-        List<BackpackTab> roots = new ArrayList<>(getBackpackTabs(player));
-        roots.addAll(InceptionTabs.getExtraRoots(player));
+        List<BackpackTab> roots = new ArrayList<>();
+        for (BackpackTab tab : getBackpackTabs(player)) {
+            // Worn backpacks always have a tab, carried ones need an inception upgrade.
+            if (tab.isWorn() || InceptionTabs.hasInceptionUpgrade(tab)) {
+                roots.add(tab);
+            }
+        }
+        for (BackpackTab extra : InceptionTabs.getExtraRoots(player)) {
+            if (roots.stream().noneMatch(tab -> InceptionTabs.sameLocation(tab, extra))) {
+                roots.add(extra);
+            }
+        }
 
         List<InventoryTab> tabs = new ArrayList<>();
         for (BackpackTab root : roots) {
@@ -164,7 +174,8 @@ public final class TabManager {
 
     private static List<BackpackTab> getBackpackTabs(Player player) {
         List<BackpackTab> found = new ArrayList<>();
-        boolean any = TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.ANY;
+        TabConfig.BackpackTabMode mode = TabConfig.getBackpackTabMode();
+        boolean any = mode == TabConfig.BackpackTabMode.ANY || mode == TabConfig.BackpackTabMode.ANY_INCEPTION;
         try {
             PlayerInventoryProvider.get().runOnBackpacks(player, (backpack, handlerName, identifier, slot) -> {
                 boolean worn = !"main".equals(handlerName);
@@ -529,7 +540,7 @@ public final class TabManager {
 
     /** Keeps the inception tabs in line with the open backpack, whose contents can change while it is shown. */
     private static void tickInception(Minecraft minecraft) {
-        if (TabConfig.getBackpackTabMode() != TabConfig.BackpackTabMode.INCEPTION_ONLY
+        if (!TabConfig.getBackpackTabMode().usesInceptionTabs()
                 || minecraft.player == null
                 || !(minecraft.screen instanceof AbstractContainerScreen<?>)) {
             // Closing the screen closes the open backpacks.

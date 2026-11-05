@@ -11,6 +11,7 @@ The editor also selects the **Backpack tabs** mode:
 - *Single worn backpack*: one tab for the worn backpack.
 - *Any backpack*: a tab for every backpack you carry.
 - *Inception upgrade only*: the worn backpack always has a tab. A backpack opened from the inventory gets a tab until you go back to the inventory. While a backpack with an Inception Upgrade is open, tabs for the backpacks inside it appear after it, tinted with the main color of the backpack they are inside, so you can see which tab they belong to. Going back to a parent closes the tabs below it.
+- *Any backpack with inception*: like *Inception upgrade only*, and additionally every carried backpack with an Inception Upgrade has a tab (worn backpacks first). The client only learns a backpack's upgrades once it has its contents, so a carried backpack may only get its tab after you opened it once.
 
 ## Requirements
 
