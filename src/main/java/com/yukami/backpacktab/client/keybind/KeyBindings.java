@@ -13,14 +13,24 @@ public final class KeyBindings {
 
     public static final String KEY_SWITCH_TAB = "key.yukamibackpacktab.switch_tab";
 
+    public static final String KEY_PREVIOUS_TAB = "key.yukamibackpacktab.previous_tab";
+
     public static KeyMapping toggleOffsetEditorKey;
     public static KeyMapping switchTabKey;
+    public static KeyMapping previousTabKey;
 
     public static void register() {
+        previousTabKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+            KEY_PREVIOUS_TAB,
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_4,
+            KEY_CATEGORY
+        ));
+
         switchTabKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             KEY_SWITCH_TAB,
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_GRAVE_ACCENT,
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_5,
             KEY_CATEGORY
         ));
 

@@ -53,10 +53,18 @@ public final class TabOffsetEditor {
                         pendingGlobalPosition = position;
                         if (pendingScreenPosition == null) selectedPosition = position;
                     });
+    private static TabConfig.BackpackTabMode pendingBackpackMode = TabConfig.BackpackTabMode.SINGLE_WORN;
+    private static final DropdownMenu<TabConfig.BackpackTabMode> backpackModeDropdown =
+            new DropdownMenu<>(
+                    List.of(TabConfig.BackpackTabMode.values()),
+                    TabConfig.BackpackTabMode.SINGLE_WORN,
+                    TabOffsetEditor::backpackModeLabel,
+                    mode -> pendingBackpackMode = mode);
     private static final int DROPDOWN_HEADER_HEIGHT = 14;
     private static final int DROPDOWN_OPTION_HEIGHT = 12;
-    private static final int PANEL_HEIGHT = 164;
-    private static final int STACKED_PANEL_HEIGHT = 188;
+    private static final int BACKPACK_ROW_HEIGHT = 20;
+    private static final int PANEL_HEIGHT = 164 + BACKPACK_ROW_HEIGHT;
+    private static final int STACKED_PANEL_HEIGHT = 188 + BACKPACK_ROW_HEIGHT + 12;
 
     private static final int COLOR_TITLE = 0xFFFFFF;
     private static final int COLOR_VALUE = 0xFFFF55;
@@ -96,6 +104,9 @@ public final class TabOffsetEditor {
         screenPositionDropdown.close();
         globalPositionDropdown.setSelected(pendingGlobalPosition);
         globalPositionDropdown.close();
+        pendingBackpackMode = TabConfig.getBackpackTabMode();
+        backpackModeDropdown.setSelected(pendingBackpackMode);
+        backpackModeDropdown.close();
         pendingOffsets.clear();
 
         for (TabConfig.TabPosition position : TabConfig.TabPosition.values()) {
@@ -111,6 +122,7 @@ public final class TabOffsetEditor {
         dragging = false;
         screenPositionDropdown.close();
         globalPositionDropdown.close();
+        backpackModeDropdown.close();
         pendingOffsets.clear();
     }
 
@@ -178,10 +190,17 @@ public final class TabOffsetEditor {
             globalPositionDropdown.handleMousePressed(localMouseX, localMouseY);
             return true;
         }
+        if (backpackModeDropdown.isOpen()) {
+            backpackModeDropdown.handleMousePressed(localMouseX, localMouseY);
+            return true;
+        }
         if (screenPositionDropdown.handleMousePressed(localMouseX, localMouseY)) {
             return true;
         }
         if (globalPositionDropdown.handleMousePressed(localMouseX, localMouseY)) {
+            return true;
+        }
+        if (backpackModeDropdown.handleMousePressed(localMouseX, localMouseY)) {
             return true;
         }
         if (editorGui.click(localMouseX, localMouseY)) {
@@ -244,7 +263,8 @@ public final class TabOffsetEditor {
         Minecraft minecraft = Minecraft.getInstance();
         TabConfig.ScreenOffset offset = getOffset(selectedPosition);
         int minimumWidth = minimumPanelWidth();
-        int labelWidth = Math.max(minecraft.font.width("Current screen"), minecraft.font.width("Global")) + 8;
+        int labelWidth = Math.max(minecraft.font.width("Current screen"),
+                Math.max(minecraft.font.width("Global"), minecraft.font.width("Backpack tabs"))) + 8;
         int preferredWidth = minimumWidth + labelWidth;
         ResponsivePanel.Layout layout = ResponsivePanel.findLayout(screen, preferredWidth, minimumWidth, 8,
                 width -> width < preferredWidth ? STACKED_PANEL_HEIGHT : PANEL_HEIGHT);
@@ -252,10 +272,12 @@ public final class TabOffsetEditor {
         int extraRow = stacked ? 12 : 0;
         int screenFieldY = 35 + extraRow;
         int globalFieldY = 55 + extraRow * 2;
-        int offsetSectionY = 80 + extraRow * 2;
-        int selectedY = 92 + extraRow * 2;
-        int valuesY = 106 + extraRow * 2;
-        int resetY = 122 + extraRow * 2;
+        int backpackFieldY = globalFieldY + BACKPACK_ROW_HEIGHT + extraRow;
+        int backpackShift = BACKPACK_ROW_HEIGHT + extraRow;
+        int offsetSectionY = 80 + extraRow * 2 + backpackShift;
+        int selectedY = 92 + extraRow * 2 + backpackShift;
+        int valuesY = 106 + extraRow * 2 + backpackShift;
+        int resetY = 122 + extraRow * 2 + backpackShift;
         int actionsY = resetY + 14 + 4;
         int panelX = layout.x() - ScreenAccess.guiLeft(screen);
         int panelY = layout.y() - ScreenAccess.guiTop(screen);
@@ -276,6 +298,7 @@ public final class TabOffsetEditor {
 
         editorGui.label(guiGraphics, "Current screen", innerX, panelY + screenFieldY + (stacked ? -12 : 3), COLOR_CAPTION);
         editorGui.label(guiGraphics, "Global", innerX, panelY + globalFieldY + (stacked ? -12 : 3), COLOR_CAPTION);
+        editorGui.label(guiGraphics, "Backpack tabs", innerX, panelY + backpackFieldY + (stacked ? -12 : 3), COLOR_CAPTION);
         editorGui.sectionHeader(guiGraphics, "Offset", innerX, panelY + offsetSectionY, innerWidth, COLOR_CAPTION);
 
         editorGui.label(guiGraphics, "Selected: " + positionLabel(selectedPosition),
@@ -297,9 +320,13 @@ public final class TabOffsetEditor {
         globalPositionDropdown.renderHeader(guiGraphics, minecraft.font, fieldX, panelY + globalFieldY, fieldWidth,
                 DROPDOWN_HEADER_HEIGHT, DROPDOWN_OPTION_HEIGHT, localMouseX, localMouseY, maxVisibleY);
 
+        backpackModeDropdown.renderHeader(guiGraphics, minecraft.font, fieldX, panelY + backpackFieldY, fieldWidth,
+                DROPDOWN_HEADER_HEIGHT, DROPDOWN_OPTION_HEIGHT, localMouseX, localMouseY, maxVisibleY);
+
         guiGraphics.pose().translate(0, 0, 10);
         screenPositionDropdown.renderPopup(guiGraphics, minecraft.font, localMouseX, localMouseY);
         globalPositionDropdown.renderPopup(guiGraphics, minecraft.font, localMouseX, localMouseY);
+        backpackModeDropdown.renderPopup(guiGraphics, minecraft.font, localMouseX, localMouseY);
         guiGraphics.pose().popPose();
     }
 
@@ -312,7 +339,11 @@ public final class TabOffsetEditor {
             selectedWidth = Math.max(selectedWidth, font.width("Selected: " + positionLabel(position)));
         }
 
-        int footerWidth = 2 * Math.max(font.width("Save"), font.width("Cancel")) + 20;
+        for (TabConfig.BackpackTabMode mode : TabConfig.BackpackTabMode.values()) {
+            choiceWidth = Math.max(choiceWidth, font.width(backpackModeLabel(mode)));
+        }
+
+        int footerWidth =2 * Math.max(font.width("Save"), font.width("Cancel")) + 20;
         return Math.max(104, 12 + Math.max(choiceWidth + 18, Math.max(footerWidth, selectedWidth)));
     }
 
@@ -331,6 +362,13 @@ public final class TabOffsetEditor {
             case TOP_RIGHT -> "Top right";
             case BOTTOM_LEFT -> "Bottom left";
             case BOTTOM_RIGHT -> "Bottom right";
+        };
+    }
+
+    private static String backpackModeLabel(TabConfig.BackpackTabMode mode) {
+        return switch (mode) {
+            case SINGLE_WORN -> "Single worn backpack";
+            case ANY -> "Any backpack";
         };
     }
 
@@ -384,9 +422,17 @@ public final class TabOffsetEditor {
             TabConfig.setGlobalTabPosition(pendingGlobalPosition);
         }
 
+        boolean modeChanged = pendingBackpackMode != TabConfig.getBackpackTabMode();
+        if (modeChanged) {
+            TabConfig.setBackpackTabMode(pendingBackpackMode);
+        }
+
         TabConfig.saveOffsets();
         TabRenderer.invalidateCache();
         cancel();
+        if (modeChanged && Minecraft.getInstance().player != null) {
+            TabManager.refreshTabsForCurrentScreen(Minecraft.getInstance().player);
+        }
         sendMessage("Saved offsets & position for " + screenClassName);
     }
 

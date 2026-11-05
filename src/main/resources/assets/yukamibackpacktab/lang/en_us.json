@@ -1,5 +1,6 @@
 {
   "key.categories.yukamibackpacktab": "Yukami Backpack Tab",
   "key.yukamibackpacktab.toggle_offset_editor": "Toggle Tab Offset Editor",
-  "key.yukamibackpacktab.switch_tab": "Switch Tab"
+  "key.yukamibackpacktab.switch_tab": "Next Tab",
+  "key.yukamibackpacktab.previous_tab": "Previous Tab"
 }

@@ -30,11 +30,19 @@ public final class TabConfig {
         }
     }
 
+    public enum BackpackTabMode {
+        /** Only the backpack worn by the player gets a tab. */
+        SINGLE_WORN,
+        /** Every backpack the player carries gets a tab (worn first, then sorted by contents UUID). */
+        ANY
+    }
+
     private static final String CLIENT_CONFIG_FILE_NAME = "yukamibackpacktab-client.json";
     private static ClientConfig clientConfig = new ClientConfig();
 
     public static class ClientConfig {
         public TabPosition tabPosition = TabPosition.TOP_LEFT;
+        public BackpackTabMode backpackTabMode = BackpackTabMode.SINGLE_WORN;
         public List<String> blacklistedScreens = new ArrayList<>();
     }
 
@@ -45,6 +53,7 @@ public final class TabConfig {
                 ClientConfig loaded = GSON.fromJson(reader, ClientConfig.class);
                 if (loaded != null) {
                     if (loaded.tabPosition == null) loaded.tabPosition = TabPosition.TOP_LEFT;
+                    if (loaded.backpackTabMode == null) loaded.backpackTabMode = BackpackTabMode.SINGLE_WORN;
                     if (loaded.blacklistedScreens == null) loaded.blacklistedScreens = new ArrayList<>();
                     clientConfig = loaded;
                 }
@@ -71,6 +80,15 @@ public final class TabConfig {
     public static void setGlobalTabPosition(TabPosition position) {
         clientConfig.tabPosition = position;
         com.yukami.backpacktab.client.gui.TabRenderer.invalidateCache();
+        saveClientConfig();
+    }
+
+    public static BackpackTabMode getBackpackTabMode() {
+        return clientConfig.backpackTabMode;
+    }
+
+    public static void setBackpackTabMode(BackpackTabMode mode) {
+        clientConfig.backpackTabMode = mode;
         saveClientConfig();
     }
 

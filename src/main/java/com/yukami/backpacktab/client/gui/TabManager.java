@@ -28,6 +28,7 @@ import net.p3pp3rf1y.sophisticatedbackpacks.common.gui.BackpackContainer;
 import net.p3pp3rf1y.sophisticatedbackpacks.util.PlayerInventoryProvider;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,7 @@ import com.yukami.backpacktab.client.tabs.BackpackTab;
 import com.yukami.backpacktab.client.tabs.ContainerTab;
 import com.yukami.backpacktab.client.tabs.InventoryTab;
 import com.yukami.backpacktab.client.tabs.PlayerTab;
+import com.yukami.backpacktab.client.keybind.KeyBindings;
 import com.yukami.backpacktab.client.util.CarriedItemUtil;
 import com.yukami.backpacktab.config.TabConfig;
 
@@ -99,25 +101,19 @@ public final class TabManager {
     public static List<InventoryTab> getAvailableTabs(Player player, AbstractContainerScreen<?> screen) {
         List<InventoryTab> tabs = new ArrayList<>();
 
-        BackpackTab equippedBackpack = getEquippedBackpackTab(player);
-        if (equippedBackpack == null) {
+        List<BackpackTab> backpackTabs = getBackpackTabs(player);
+        if (backpackTabs.isEmpty()) {
             return tabs;
         }
 
         if (screen instanceof InventoryScreen) {
             tabs.add(new PlayerTab());
-            tabs.add(equippedBackpack);
+            tabs.addAll(backpackTabs);
             return tabs;
         }
 
         if (storedBlockPos != null && !isStoredBlockValid()) {
             clearStoredBlock();
-        }
-
-        if (storedBlockPos != null && isBackpackBlock(player.level(), storedBlockPos)) {
-            tabs.add(new ContainerTab(storedBlockPos));
-            tabs.add(equippedBackpack);
-            return tabs;
         }
 
         if (storedBlockPos != null) {
@@ -126,7 +122,7 @@ public final class TabManager {
             tabs.add(new PlayerTab());
         }
 
-        tabs.add(equippedBackpack);
+        tabs.addAll(backpackTabs);
         return tabs;
     }
 
@@ -134,23 +130,34 @@ public final class TabManager {
         tabs.forEach(tab -> tab.setActive(tab.matchesCurrentScreen(screen)));
     }
 
-    private static BackpackTab getEquippedBackpackTab(Player player) {
-        try {
-            BackpackTab[] foundTab = {null};
+    /** Worn backpacks first (in discovery order), then the rest sorted by contents UUID (unknown UUIDs last). */
+    static final Comparator<BackpackTab> BACKPACK_TAB_ORDER = Comparator
+            .comparing((BackpackTab tab) -> !tab.isWorn())
+            .thenComparing(tab -> tab.getContentsUuid().isEmpty())
+            .thenComparing(tab -> tab.isWorn() ? null : tab.getContentsUuid().orElse(null),
+                    Comparator.nullsFirst(Comparator.<UUID>naturalOrder()));
 
+    private static List<BackpackTab> getBackpackTabs(Player player) {
+        List<BackpackTab> found = new ArrayList<>();
+        boolean any = TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.ANY;
+        try {
             PlayerInventoryProvider.get().runOnBackpacks(player, (backpack, handlerName, identifier, slot) -> {
-                if ("main".equals(handlerName)) {
+                boolean worn = !"main".equals(handlerName);
+                if (!worn && !any) {
                     return false;
                 }
-                foundTab[0] = new BackpackTab(backpack, handlerName, identifier, slot);
-                return true;
+                found.add(new BackpackTab(backpack, handlerName, identifier, slot));
+                return !any;
             });
-
-            return foundTab[0];
         } catch (Exception e) {
-            YukamiBackpackTab.LOGGER.debug("Failed to find equipped backpack", e);
-            return null;
+            YukamiBackpackTab.LOGGER.debug("Failed to find backpacks", e);
+            return List.of();
         }
+
+        if (any) {
+            found.sort(BACKPACK_TAB_ORDER);
+        }
+        return found;
     }
 
     public static boolean isStoredBlockValid() {
@@ -201,12 +208,6 @@ public final class TabManager {
     public static boolean isSophisticatedStorageBlock(Block block) {
         return "sophisticatedstorage".equals(
                 net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).getNamespace());
-    }
-
-    private static boolean isBackpackBlock(Level world, BlockPos pos) {
-        if (world == null || pos == null) return false;
-        BlockState blockState = world.getBlockState(pos);
-        return blockState.getBlock() instanceof BackpackBlock;
     }
 
     private static boolean isScreenAllowedForTabs(AbstractContainerScreen<?> screen) {
@@ -303,7 +304,9 @@ public final class TabManager {
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
-            if (!completedSwitch) {
+            // In "any backpack" mode the tab list is rebuilt after a switch too, so freshly opened backpacks
+            // (which only get a contents UUID once opened) are identified correctly.
+            if (!completedSwitch || TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.ANY) {
                 activeTabs.clear();
                 activeTabs.addAll(getAvailableTabs(player, containerScreen));
             }
@@ -380,6 +383,18 @@ public final class TabManager {
             return true;
         }
 
+        // Next/previous tab keybindings may be bound to mouse buttons.
+        if (KeyBindings.switchTabKey != null && KeyBindings.switchTabKey.matchesMouse(button)) {
+            consumedMouseButtons.add(button);
+            switchToNextTab(containerScreen);
+            return false;
+        }
+        if (KeyBindings.previousTabKey != null && KeyBindings.previousTabKey.matchesMouse(button)) {
+            consumedMouseButtons.add(button);
+            switchToPreviousTab(containerScreen);
+            return false;
+        }
+
         if (TabRenderer.handleTabClick(mouseX, mouseY, button, containerScreen)) {
             consumedMouseButtons.add(button);
             return false;
@@ -387,8 +402,21 @@ public final class TabManager {
         return true;
     }
 
-    /** Switches to the next tab (cycling) of the given screen, mirroring the conditions of a tab click. */
+    /**
+     * Switches to the next tab (cycling). Tabs are laid out away from the screen edge they are anchored to, so
+     * "next" is always the tab further from the edge: right of the active tab on the left side, left of it on the right.
+     */
     public static boolean switchToNextTab(AbstractContainerScreen<?> containerScreen) {
+        return switchTab(containerScreen, 1);
+    }
+
+    /** Switches to the previous tab (cycling), i.e. the tab closer to the anchored screen edge. */
+    public static boolean switchToPreviousTab(AbstractContainerScreen<?> containerScreen) {
+        return switchTab(containerScreen, -1);
+    }
+
+    /** Switches tab by the given direction (cycling), mirroring the conditions of a tab click. */
+    private static boolean switchTab(AbstractContainerScreen<?> containerScreen, int direction) {
         if (tabSwitch.isPending() || TabOffsetEditor.isEnabled()) return false;
         if (!useCurrentScreen(containerScreen)) return false;
         if (TabConfig.isScreenBlacklisted(containerScreen.getClass().getSimpleName())) return false;
@@ -407,7 +435,7 @@ public final class TabManager {
         }
 
         for (int step = 1; step < activeTabs.size(); step++) {
-            InventoryTab target = activeTabs.get((activeIndex + step) % activeTabs.size());
+            InventoryTab target = activeTabs.get(Math.floorMod(activeIndex + step * direction, activeTabs.size()));
             if (!target.isActive() && !target.matchesCurrentScreen(containerScreen)) {
                 TabSwitcher.switchToTab(target, player, minecraft.gameMode);
                 return true;

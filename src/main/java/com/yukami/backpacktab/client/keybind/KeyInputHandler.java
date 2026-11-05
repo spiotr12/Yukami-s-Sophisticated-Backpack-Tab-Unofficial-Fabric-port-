@@ -46,6 +46,13 @@ public final class KeyInputHandler {
             !(screen.getFocused() instanceof EditBox)) {
             return !TabManager.switchToNextTab(containerScreen);
         }
+
+        if (KeyBindings.previousTabKey != null &&
+            KeyBindings.previousTabKey.matches(keyCode, scanCode) &&
+            minecraft.screen instanceof AbstractContainerScreen<?> containerScreen &&
+            !(screen.getFocused() instanceof EditBox)) {
+            return !TabManager.switchToPreviousTab(containerScreen);
+        }
         return true;
     }
 }

@@ -2,6 +2,7 @@ package com.yukami.backpacktab.client.tabs;
 
 import com.yukami.backpacktab.YukamiBackpackTab;
 import com.yukami.backpacktab.client.gui.TabManager;
+import com.yukami.backpacktab.config.TabConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -39,13 +40,22 @@ public final class BackpackTab implements InventoryTab {
         this.contentsUuid = BackpackWrapper.fromStack(backpackStack).getContentsUuid();
     }
 
+    public boolean isWorn() {
+        return !"main".equals(handlerName);
+    }
+
+    public Optional<UUID> getContentsUuid() {
+        return contentsUuid;
+    }
+
     public Optional<BackpackTab> resolveCurrentLocation(Player player) {
         try {
             BackpackTab[] match = {null};
             boolean[] ambiguous = {false};
+            boolean allowMain = !isWorn();
 
             PlayerInventoryProvider.get().runOnBackpacks(player, (backpack, handlerName, currentIdentifier, currentSlot) -> {
-                if ("main".equals(handlerName) || !matchesBackpack(backpack)) {
+                if (("main".equals(handlerName) && !allowMain) || !matchesBackpack(backpack)) {
                     return false;
                 }
 
@@ -106,19 +116,28 @@ public final class BackpackTab implements InventoryTab {
             return false;
         }
 
+        Optional<UUID> screenUuid = TabManager.getScreenBackpackContentsUuid(screen);
+
         BlockPos storedPos = TabManager.getStoredBlockPos();
         if (storedPos != null) {
             Level world = Minecraft.getInstance().level;
             if (world != null) {
                 BlockState blockState = world.getBlockState(storedPos);
                 if (blockState.getBlock() instanceof BackpackBlock) {
-                    Optional<UUID> screenUuid = TabManager.getScreenBackpackContentsUuid(screen);
                     if (screenUuid.isEmpty()) {
                         return false;
                     }
-                    return !screenUuid.equals(TabManager.getBlockBackpackContentsUuid(storedPos));
+                    if (screenUuid.equals(TabManager.getBlockBackpackContentsUuid(storedPos))) {
+                        return false;
+                    }
                 }
             }
+        }
+
+        // With several backpack tabs, only the one whose backpack is shown is selected.
+        if (TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.ANY
+                && contentsUuid.isPresent() && screenUuid.isPresent()) {
+            return contentsUuid.equals(screenUuid);
         }
 
         return true;
