@@ -20,4 +20,20 @@ public interface InventoryTab {
     boolean isActive();
 
     void setActive(boolean active);
+
+    /** Value of {@link #getTabTint()} for tabs that keep the default look. */
+    int NO_TINT = -1;
+
+    /** @return an RGB color the tab background is tinted with, or {@link #NO_TINT}. */
+    default int getTabTint() {
+        return NO_TINT;
+    }
+
+    /**
+     * @return whether the currently open container has to be closed before this tab is opened. Tabs that are opened
+     * through the open container itself must not close it first.
+     */
+    default boolean requiresContainerClose() {
+        return true;
+    }
 }

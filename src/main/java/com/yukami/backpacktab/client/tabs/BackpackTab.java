@@ -1,6 +1,7 @@
 package com.yukami.backpacktab.client.tabs;
 
 import com.yukami.backpacktab.YukamiBackpackTab;
+import com.yukami.backpacktab.client.gui.InceptionTabs;
 import com.yukami.backpacktab.client.gui.TabManager;
 import com.yukami.backpacktab.config.TabConfig;
 import net.minecraft.client.Minecraft;
@@ -46,6 +47,18 @@ public final class BackpackTab implements InventoryTab {
 
     public Optional<UUID> getContentsUuid() {
         return contentsUuid;
+    }
+
+    public String getHandlerName() {
+        return handlerName;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public int getSlot() {
+        return slot;
     }
 
     public Optional<BackpackTab> resolveCurrentLocation(Player player) {
@@ -132,6 +145,12 @@ public final class BackpackTab implements InventoryTab {
                     }
                 }
             }
+        }
+
+        // Only the tab of the backpack that is itself shown is selected, not the ones of backpacks inside it.
+        if (TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.INCEPTION_ONLY
+                && InceptionTabs.hasOpenBackpack()) {
+            return InceptionTabs.isRootCurrent(this);
         }
 
         // With several backpack tabs, only the one whose backpack is shown is selected.

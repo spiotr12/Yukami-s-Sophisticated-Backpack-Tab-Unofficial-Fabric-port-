@@ -7,6 +7,11 @@ It is a **client-only** mod that adds tabs to inventory/container screens for sw
 
 Press **F9** in a container screen to open the tab offset editor.
 
+The editor also selects the **Backpack tabs** mode:
+- *Single worn backpack*: one tab for the worn backpack.
+- *Any backpack*: a tab for every backpack you carry.
+- *Inception upgrade only*: the worn backpack always has a tab. A backpack opened from the inventory gets a tab until you go back to the inventory. While a backpack with an Inception Upgrade is open, tabs for the backpacks inside it appear after it, tinted with the main color of the backpack they are inside, so you can see which tab they belong to. Going back to a parent closes the tabs below it.
+
 ## Requirements
 
 - JDK 21 (e.g. `C:\Programs\Java\jdk-21.0.12.1+1`)

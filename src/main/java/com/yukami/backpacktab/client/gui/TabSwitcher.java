@@ -38,7 +38,7 @@ public final class TabSwitcher {
 
         if (!TabManager.beginTabSwitch(targetTab, localPlayer.containerMenu)) return;
 
-        prepareContainerSwitch(localPlayer, gameMode, targetTab instanceof ContainerTab);
+        prepareContainerSwitch(localPlayer, gameMode, targetTab instanceof ContainerTab, targetTab.requiresContainerClose());
 
         targetTab.open(player, player.level(), player.containerMenu, gameMode);
     }
@@ -46,7 +46,8 @@ public final class TabSwitcher {
     private static void prepareContainerSwitch(
             LocalPlayer localPlayer,
             MultiPlayerGameMode gameMode,
-            boolean preserveMainHand
+            boolean preserveMainHand,
+            boolean closeContainer
     ) {
         AbstractContainerMenu containerMenu = localPlayer.containerMenu;
         if (containerMenu == null) {
@@ -56,7 +57,7 @@ public final class TabSwitcher {
         int excludedSlot = preserveMainHand ? localPlayer.getInventory().selected : -1;
         CarriedItemUtil.stashCarriedItem(localPlayer, gameMode, containerMenu, excludedSlot);
 
-        if (!(containerMenu instanceof InventoryMenu) && localPlayer.connection != null) {
+        if (closeContainer && !(containerMenu instanceof InventoryMenu) && localPlayer.connection != null) {
             localPlayer.connection.send(new ServerboundContainerClosePacket(containerMenu.containerId));
         }
     }

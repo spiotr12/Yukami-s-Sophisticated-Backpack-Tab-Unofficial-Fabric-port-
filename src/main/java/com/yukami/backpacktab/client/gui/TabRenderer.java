@@ -97,10 +97,17 @@ public final class TabRenderer {
 
             ResourceLocation sprite = getTabSprite(position, active, i == 0);
             boolean dimmedPreview = !selectedPreview && TabOffsetEditor.isEnabledFor(screen);
+            int tint = tab.getTabTint();
+            boolean tinted = !dimmedPreview && tint != InventoryTab.NO_TINT;
             if (dimmedPreview) {
                 guiGraphics.setColor(0.45F, 0.45F, 0.45F, 0.65F);
+            } else if (tinted) {
+                guiGraphics.setColor(((tint >> 16) & 0xFF) / 255.0F, ((tint >> 8) & 0xFF) / 255.0F, (tint & 0xFF) / 255.0F, 1.0F);
             }
             guiGraphics.blitSprite(sprite, x, y, bounds.width(), height);
+            if (tinted) {
+                guiGraphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            }
 
             int itemX = x + ITEM_OFFSET_X;
             int itemY = position.isBottom()

@@ -34,7 +34,12 @@ public final class TabConfig {
         /** Only the backpack worn by the player gets a tab. */
         SINGLE_WORN,
         /** Every backpack the player carries gets a tab (worn first, then sorted by contents UUID). */
-        ANY
+        ANY,
+        /**
+         * The worn backpack always has a tab. Backpacks opened from the inventory, and the backpacks inside an open
+         * backpack that has an inception upgrade, get a tab for as long as they are open.
+         */
+        INCEPTION_ONLY
     }
 
     private static final String CLIENT_CONFIG_FILE_NAME = "yukamibackpacktab-client.json";

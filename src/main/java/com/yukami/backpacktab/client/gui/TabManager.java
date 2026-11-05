@@ -101,7 +101,9 @@ public final class TabManager {
     public static List<InventoryTab> getAvailableTabs(Player player, AbstractContainerScreen<?> screen) {
         List<InventoryTab> tabs = new ArrayList<>();
 
-        List<BackpackTab> backpackTabs = getBackpackTabs(player);
+        List<InventoryTab> backpackTabs = TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.INCEPTION_ONLY
+                ? getInceptionTabs(player, screen)
+                : new ArrayList<>(getBackpackTabs(player));
         if (backpackTabs.isEmpty()) {
             return tabs;
         }
@@ -123,6 +125,29 @@ public final class TabManager {
         }
 
         tabs.addAll(backpackTabs);
+        return tabs;
+    }
+
+    /**
+     * Inception mode: the worn backpack and the backpacks opened from the inventory, each followed by the tabs of
+     * the backpacks that are open inside it.
+     */
+    private static List<InventoryTab> getInceptionTabs(Player player, AbstractContainerScreen<?> screen) {
+        if (screen instanceof BackpackScreen) {
+            InceptionTabs.sync(screen, player);
+        } else if (isScreenAllowedForTabs(screen)) {
+            // The player inventory (or a container) is shown, so every open backpack is closed.
+            InceptionTabs.reset();
+        }
+
+        List<BackpackTab> roots = new ArrayList<>(getBackpackTabs(player));
+        roots.addAll(InceptionTabs.getExtraRoots(player));
+
+        List<InventoryTab> tabs = new ArrayList<>();
+        for (BackpackTab root : roots) {
+            tabs.add(root);
+            tabs.addAll(InceptionTabs.getDescendantTabs(root));
+        }
         return tabs;
     }
 
@@ -304,9 +329,9 @@ public final class TabManager {
 
         Player player = Minecraft.getInstance().player;
         if (player != null) {
-            // In "any backpack" mode the tab list is rebuilt after a switch too, so freshly opened backpacks
+            // In the multi tab modes the tab list is rebuilt after a switch too, so freshly opened backpacks
             // (which only get a contents UUID once opened) are identified correctly.
-            if (!completedSwitch || TabConfig.getBackpackTabMode() == TabConfig.BackpackTabMode.ANY) {
+            if (!completedSwitch || TabConfig.getBackpackTabMode() != TabConfig.BackpackTabMode.SINGLE_WORN) {
                 activeTabs.clear();
                 activeTabs.addAll(getAvailableTabs(player, containerScreen));
             }
@@ -487,7 +512,10 @@ public final class TabManager {
     }
 
     private static void onClientTick(Minecraft minecraft) {
-        if (!tabSwitch.isPending()) return;
+        if (!tabSwitch.isPending()) {
+            tickInception(minecraft);
+            return;
+        }
 
         if (minecraft.player == null || !(minecraft.screen instanceof AbstractContainerScreen<?>)) {
             resetState();
@@ -498,6 +526,23 @@ public final class TabManager {
                     "Tab switch timed out. Please reopen your inventory."));
         }
     }
+
+    /** Keeps the inception tabs in line with the open backpack, whose contents can change while it is shown. */
+    private static void tickInception(Minecraft minecraft) {
+        if (TabConfig.getBackpackTabMode() != TabConfig.BackpackTabMode.INCEPTION_ONLY
+                || minecraft.player == null
+                || !(minecraft.screen instanceof AbstractContainerScreen<?>)) {
+            // Closing the screen closes the open backpacks.
+            InceptionTabs.reset();
+            return;
+        }
+
+        if (minecraft.screen instanceof BackpackScreen backpackScreen && backpackScreen == currentScreen
+                && InceptionTabs.sync(backpackScreen, minecraft.player)) {
+            refreshTabsForCurrentScreen(minecraft.player);
+        }
+    }
+
     public static List<InventoryTab> getActiveTabsView() {
         return activeTabs;
     }
