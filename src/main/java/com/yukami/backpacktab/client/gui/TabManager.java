@@ -387,6 +387,35 @@ public final class TabManager {
         return true;
     }
 
+    /** Switches to the next tab (cycling) of the given screen, mirroring the conditions of a tab click. */
+    public static boolean switchToNextTab(AbstractContainerScreen<?> containerScreen) {
+        if (tabSwitch.isPending() || TabOffsetEditor.isEnabled()) return false;
+        if (!useCurrentScreen(containerScreen)) return false;
+        if (TabConfig.isScreenBlacklisted(containerScreen.getClass().getSimpleName())) return false;
+        if (!isScreenAllowedForTabs(containerScreen)) return false;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        Player player = minecraft.player;
+        if (player == null || activeTabs.size() < 2) return false;
+
+        int activeIndex = 0;
+        for (int i = 0; i < activeTabs.size(); i++) {
+            if (activeTabs.get(i).isActive()) {
+                activeIndex = i;
+                break;
+            }
+        }
+
+        for (int step = 1; step < activeTabs.size(); step++) {
+            InventoryTab target = activeTabs.get((activeIndex + step) % activeTabs.size());
+            if (!target.isActive() && !target.matchesCurrentScreen(containerScreen)) {
+                TabSwitcher.switchToTab(target, player, minecraft.gameMode);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean allowMouseRelease(AbstractContainerScreen<?> containerScreen, int button) {
         // Always end an offset-editor drag, even if the press was consumed (it always is in editor mode).
         if (TabOffsetEditor.isEnabledFor(containerScreen)) {

@@ -8,6 +8,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
 
+import net.minecraft.client.gui.components.EditBox;
+import com.yukami.backpacktab.client.gui.TabManager;
 import com.yukami.backpacktab.client.gui.TabOffsetEditor;
 
 public final class KeyInputHandler {
@@ -36,6 +38,13 @@ public final class KeyInputHandler {
             minecraft.screen instanceof AbstractContainerScreen<?>) {
             TabOffsetEditor.toggle(minecraft.screen);
             return false;
+        }
+
+        if (KeyBindings.switchTabKey != null &&
+            KeyBindings.switchTabKey.matches(keyCode, scanCode) &&
+            minecraft.screen instanceof AbstractContainerScreen<?> containerScreen &&
+            !(screen.getFocused() instanceof EditBox)) {
+            return !TabManager.switchToNextTab(containerScreen);
         }
         return true;
     }
