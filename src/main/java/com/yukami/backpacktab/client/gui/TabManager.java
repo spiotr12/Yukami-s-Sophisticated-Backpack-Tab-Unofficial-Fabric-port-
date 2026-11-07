@@ -38,6 +38,7 @@ import java.util.UUID;
 import com.yukami.backpacktab.YukamiBackpackTab;
 import com.yukami.backpacktab.client.tabs.BackpackTab;
 import com.yukami.backpacktab.client.tabs.ContainerTab;
+import com.yukami.backpacktab.client.tabs.EntityTab;
 import com.yukami.backpacktab.client.tabs.InventoryTab;
 import com.yukami.backpacktab.client.tabs.PlayerTab;
 import com.yukami.backpacktab.client.keybind.KeyBindings;
@@ -50,6 +51,9 @@ public final class TabManager {
     private static AbstractContainerScreen<?> currentScreen;
     private static BlockPos storedBlockPos;
     private static Block storedBlockType;
+    private static int storedEntityId = -1;
+    private static int lastUsedEntityId = -1;
+    private static long lastUsedEntityTime;
     private static final TabSwitchState tabSwitch = new TabSwitchState();
     private static final List<InventoryTab> activeTabs = new ArrayList<>();
     private static final Set<Integer> consumedMouseButtons = new HashSet<>();
@@ -118,8 +122,14 @@ public final class TabManager {
             clearStoredBlock();
         }
 
+        if (storedEntityId != -1 && !isStoredEntityValid()) {
+            storedEntityId = -1;
+        }
+
         if (storedBlockPos != null) {
             tabs.add(new ContainerTab(storedBlockPos));
+        } else if (storedEntityId != -1) {
+            tabs.add(new EntityTab(storedEntityId));
         } else {
             tabs.add(new PlayerTab());
         }
@@ -194,6 +204,13 @@ public final class TabManager {
             found.sort(BACKPACK_TAB_ORDER);
         }
         return found;
+    }
+
+    public static boolean isStoredEntityValid() {
+        Player player = Minecraft.getInstance().player;
+        if (storedEntityId == -1 || player == null) return false;
+        var entity = player.level().getEntity(storedEntityId);
+        return entity != null && entity.isAlive() && player.canInteractWithEntity(entity, 3.0);
     }
 
     public static boolean isStoredBlockValid() {
@@ -276,6 +293,9 @@ public final class TabManager {
         if (storedBlockPos != null && !isStoredBlockValid()) {
             return false;
         }
+        if (storedBlockPos == null && storedEntityId != -1 && !isStoredEntityValid()) {
+            return false;
+        }
         return TabConfig.isMenuEnabled(getMenuId(screen));
     }
 
@@ -316,10 +336,19 @@ public final class TabManager {
     private static void clearStoredBlock() {
         storedBlockPos = null;
         storedBlockType = null;
+        storedEntityId = -1;
+        lastUsedEntityId = -1;
     }
 
     public static void register() {
         UseBlockCallback.EVENT.register(TabManager::onRightClickBlock);
+        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+            if (world.isClientSide() && player == Minecraft.getInstance().player) {
+                lastUsedEntityId = entity.getId();
+                lastUsedEntityTime = world.getGameTime();
+            }
+            return InteractionResult.PASS;
+        });
         ScreenEvents.AFTER_INIT.register(TabManager::onScreenInit);
         ClientTickEvents.END_CLIENT_TICK.register(TabManager::onClientTick);
     }
@@ -328,7 +357,9 @@ public final class TabManager {
         if (world.isClientSide()) {
             BlockPos clickedPos = hit.getBlockPos();
 
+            lastUsedEntityId = -1;
             if (isContainerBlock(world, clickedPos)) {
+                storedEntityId = -1;
                 storedBlockPos = clickedPos;
                 storedBlockType = world.getBlockState(clickedPos).getBlock();
             } else {
@@ -349,6 +380,16 @@ public final class TabManager {
                 !TabOffsetEditor.handleMouseScrolled(containerScreen, x, y, v));
 
         currentScreen = containerScreen;
+
+        if (lastUsedEntityId != -1) {
+            var level = Minecraft.getInstance().level;
+            boolean fresh = level != null && level.getGameTime() - lastUsedEntityTime <= 40;
+            if (fresh && storedBlockPos == null && !(containerScreen instanceof InventoryScreen)
+                    && !(containerScreen instanceof BackpackScreen)) {
+                storedEntityId = lastUsedEntityId;
+            }
+            lastUsedEntityId = -1;
+        }
 
         boolean completedSwitch = tabSwitch.complete(containerScreen.getMenu());
         if (tabSwitch.isPending()) {
