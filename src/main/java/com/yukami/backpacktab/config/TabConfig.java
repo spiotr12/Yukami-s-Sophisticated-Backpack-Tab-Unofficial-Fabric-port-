@@ -59,6 +59,8 @@ public final class TabConfig {
         public TabPosition tabPosition = TabPosition.TOP_LEFT;
         public BackpackTabMode backpackTabMode = BackpackTabMode.SINGLE_WORN;
         public List<String> blacklistedScreens = new ArrayList<>();
+        /** Per menu (registry id) switch; menus that are not listed are enabled. */
+        public Map<String, Boolean> menuEnabled = new HashMap<>();
     }
 
     public static void loadClientConfig() {
@@ -70,6 +72,7 @@ public final class TabConfig {
                     if (loaded.tabPosition == null) loaded.tabPosition = TabPosition.TOP_LEFT;
                     if (loaded.backpackTabMode == null) loaded.backpackTabMode = BackpackTabMode.SINGLE_WORN;
                     if (loaded.blacklistedScreens == null) loaded.blacklistedScreens = new ArrayList<>();
+                    if (loaded.menuEnabled == null) loaded.menuEnabled = new HashMap<>();
                     clientConfig = loaded;
                 }
             } catch (IOException | com.google.gson.JsonParseException e) {
@@ -104,6 +107,15 @@ public final class TabConfig {
 
     public static void setBackpackTabMode(BackpackTabMode mode) {
         clientConfig.backpackTabMode = mode;
+        saveClientConfig();
+    }
+
+    public static boolean isMenuEnabled(String menuId) {
+        return menuId != null && clientConfig.menuEnabled.getOrDefault(menuId, true);
+    }
+
+    public static void setMenuEnabled(Map<String, Boolean> states) {
+        clientConfig.menuEnabled.putAll(states);
         saveClientConfig();
     }
 

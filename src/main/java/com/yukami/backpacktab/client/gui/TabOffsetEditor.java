@@ -14,6 +14,8 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +74,95 @@ public final class TabOffsetEditor {
     private static final Map<TabConfig.TabPosition, TabConfig.ScreenOffset> pendingOffsets =
             new EnumMap<>(TabConfig.TabPosition.class);
 
+    private static final int MENU_PANEL_WIDTH = 170;
+    private static final int MENU_ROW_HEIGHT = 12;
+    private static final int MENU_HEADER_HEIGHT = 20;
+    private static final Map<String, Boolean> pendingMenus = new LinkedHashMap<>();
+    private static int menuPanelX, menuPanelY, menuPanelWidth, menuPanelHeight;
+    private static int menuScroll;
+
+    private static int menuVisibleRows() {
+        return Math.max(1, (menuPanelHeight - MENU_HEADER_HEIGHT - 4) / MENU_ROW_HEIGHT);
+    }
+
+    private static int maxMenuScroll() {
+        return Math.max(0, pendingMenus.size() - menuVisibleRows());
+    }
+
+    private static boolean inMenuPanel(double x, double y) {
+        return x >= menuPanelX && x < menuPanelX + menuPanelWidth && y >= menuPanelY && y < menuPanelY + menuPanelHeight;
+    }
+
+    public static boolean handleMouseScrolled(AbstractContainerScreen<?> screen, double mouseX, double mouseY, double amount) {
+        if (!isEnabledFor(screen)) return false;
+        double lx = mouseX - ScreenAccess.guiLeft(screen);
+        double ly = mouseY - ScreenAccess.guiTop(screen);
+        if (inMenuPanel(lx, ly)) {
+            menuScroll = Math.max(0, Math.min(maxMenuScroll(), menuScroll - (int) Math.signum(amount)));
+        }
+        return true;
+    }
+
+    private static boolean handleMenuClick(double lx, double ly) {
+        if (!inMenuPanel(lx, ly)) return false;
+        int listTop = menuPanelY + MENU_HEADER_HEIGHT;
+        if (ly < listTop) return true;
+        int row = (int) ((ly - listTop) / MENU_ROW_HEIGHT);
+        if (row >= menuVisibleRows()) return true;
+        int index = row + menuScroll;
+        if (index < pendingMenus.size()) {
+            String id = pendingMenus.keySet().stream().skip(index).findFirst().orElse(null);
+            if (id != null) pendingMenus.put(id, !pendingMenus.get(id));
+        }
+        return true;
+    }
+
+    private static String menuLabel(String id) {
+        String text = id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
+        return text.replace('_', ' ');
+    }
+
+    private static void renderMenuPanel(GuiGraphics guiGraphics, AbstractContainerScreen<?> screen, double lx, double ly) {
+        var font = Minecraft.getInstance().font;
+        int guiLeft = ScreenAccess.guiLeft(screen);
+        int guiTop = ScreenAccess.guiTop(screen);
+        int guiRight = guiLeft + ScreenAccess.xSize(screen);
+        menuPanelWidth = MENU_PANEL_WIDTH;
+        int absX = guiRight + 8;
+        if (absX + menuPanelWidth > screen.width - 4) absX = Math.max(4, screen.width - menuPanelWidth - 4);
+        menuPanelHeight = Math.min(screen.height - 16, MENU_HEADER_HEIGHT + 4 + MENU_ROW_HEIGHT * Math.max(1, pendingMenus.size()));
+        menuPanelX = absX - guiLeft;
+        menuPanelY = 8 - guiTop;
+        menuScroll = Math.max(0, Math.min(maxMenuScroll(), menuScroll));
+
+        editorGui.panel(guiGraphics, menuPanelX, menuPanelY, menuPanelWidth, menuPanelHeight);
+        editorGui.sectionHeader(guiGraphics, "Menus with tabs", menuPanelX + 6, menuPanelY + 8, menuPanelWidth - 12, COLOR_CAPTION);
+
+        int rows = menuVisibleRows();
+        int index = 0;
+        for (Map.Entry<String, Boolean> entry : pendingMenus.entrySet()) {
+            if (index >= menuScroll && index < menuScroll + rows) {
+                int y = menuPanelY + MENU_HEADER_HEIGHT + (index - menuScroll) * MENU_ROW_HEIGHT;
+                int bx = menuPanelX + 6;
+                boolean hovered = lx >= menuPanelX && lx < menuPanelX + menuPanelWidth && ly >= y && ly < y + MENU_ROW_HEIGHT;
+                guiGraphics.fill(bx, y + 1, bx + 9, y + 10, 0xFFA0A0A0);
+                guiGraphics.fill(bx + 1, y + 2, bx + 8, y + 9, hovered ? 0xFF565B63 : 0xFF202328);
+                if (entry.getValue()) guiGraphics.fill(bx + 2, y + 3, bx + 7, y + 8, 0xFF55FF55);
+                String text = fitLabel(menuLabel(entry.getKey()), menuPanelWidth - 12 - 14);
+                editorGui.label(guiGraphics, text, bx + 14, y + 2, entry.getValue() ? COLOR_TITLE : 0x888888);
+            }
+            index++;
+        }
+        if (maxMenuScroll() > 0) {
+            int trackTop = menuPanelY + MENU_HEADER_HEIGHT;
+            int trackH = rows * MENU_ROW_HEIGHT;
+            int barH = Math.max(8, trackH * rows / pendingMenus.size());
+            int barY = trackTop + (trackH - barH) * menuScroll / maxMenuScroll();
+            int barX = menuPanelX + menuPanelWidth - 4;
+            guiGraphics.fill(barX, barY, barX + 2, barY + barH, 0xFFA0A0A0);
+        }
+    }
+
     public static boolean isEnabled() {
         return enabled;
     }
@@ -108,6 +199,11 @@ public final class TabOffsetEditor {
         backpackModeDropdown.setSelected(pendingBackpackMode);
         backpackModeDropdown.close();
         pendingOffsets.clear();
+        pendingMenus.clear();
+        for (String id : TabManager.getAllMenuIds()) {
+            pendingMenus.put(id, TabConfig.isMenuEnabled(id));
+        }
+        menuScroll = 0;
 
         for (TabConfig.TabPosition position : TabConfig.TabPosition.values()) {
             TabConfig.ScreenOffset offset = TabConfig.getScreenOffset(screenClassName, position);
@@ -124,6 +220,7 @@ public final class TabOffsetEditor {
         globalPositionDropdown.close();
         backpackModeDropdown.close();
         pendingOffsets.clear();
+        pendingMenus.clear();
     }
 
     public static boolean handleKeyPressed(int keyCode) {
@@ -182,6 +279,10 @@ public final class TabOffsetEditor {
         double localMouseX = mouseX - ScreenAccess.guiLeft(screen);
         double localMouseY = mouseY - ScreenAccess.guiTop(screen);
 
+        if (!screenPositionDropdown.isOpen() && !globalPositionDropdown.isOpen() && !backpackModeDropdown.isOpen()
+                && handleMenuClick(localMouseX, localMouseY)) {
+            return true;
+        }
         if (screenPositionDropdown.isOpen()) {
             screenPositionDropdown.handleMousePressed(localMouseX, localMouseY);
             return true;
@@ -323,6 +424,8 @@ public final class TabOffsetEditor {
         backpackModeDropdown.renderHeader(guiGraphics, minecraft.font, fieldX, panelY + backpackFieldY, fieldWidth,
                 DROPDOWN_HEADER_HEIGHT, DROPDOWN_OPTION_HEIGHT, localMouseX, localMouseY, maxVisibleY);
 
+        renderMenuPanel(guiGraphics, screen, localMouseX, localMouseY);
+
         guiGraphics.pose().translate(0, 0, 10);
         screenPositionDropdown.renderPopup(guiGraphics, minecraft.font, localMouseX, localMouseY);
         globalPositionDropdown.renderPopup(guiGraphics, minecraft.font, localMouseX, localMouseY);
@@ -429,6 +532,7 @@ public final class TabOffsetEditor {
             TabConfig.setBackpackTabMode(pendingBackpackMode);
         }
 
+        TabConfig.setMenuEnabled(new HashMap<>(pendingMenus));
         TabConfig.saveOffsets();
         TabRenderer.invalidateCache();
         cancel();

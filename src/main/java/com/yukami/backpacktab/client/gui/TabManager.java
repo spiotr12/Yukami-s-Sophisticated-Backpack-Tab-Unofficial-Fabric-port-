@@ -246,16 +246,37 @@ public final class TabManager {
                 net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block).getNamespace());
     }
 
+    public static final String INVENTORY_MENU_ID = "minecraft:inventory";
+
+    /** @return the id used to enable/disable tabs for the menu of the screen, or null if it has no menu type. */
+    public static String getMenuId(AbstractContainerScreen<?> screen) {
+        if (screen instanceof InventoryScreen) return INVENTORY_MENU_ID;
+        try {
+            var key = net.minecraft.core.registries.BuiltInRegistries.MENU.getKey(screen.getMenu().getType());
+            return key == null ? null : key.toString();
+        } catch (UnsupportedOperationException e) {
+            return null;
+        }
+    }
+
+    /** @return all menu ids that can be toggled, sorted. */
+    public static List<String> getAllMenuIds() {
+        List<String> ids = new ArrayList<>();
+        ids.add(INVENTORY_MENU_ID);
+        net.minecraft.core.registries.BuiltInRegistries.MENU.keySet().forEach(id -> ids.add(id.toString()));
+        ids.sort(Comparator.naturalOrder());
+        return ids;
+    }
+
     private static boolean isScreenAllowedForTabs(AbstractContainerScreen<?> screen) {
-        if (screen instanceof InventoryScreen) {
-            return true;
+        if (screen instanceof InventoryScreen || screen instanceof BackpackScreen) {
+            return TabConfig.isMenuEnabled(getMenuId(screen));
         }
 
-        if (screen instanceof BackpackScreen) {
-            return true;
+        if (storedBlockPos != null && !isStoredBlockValid()) {
+            return false;
         }
-
-        return storedBlockPos != null && isStoredBlockValid();
+        return TabConfig.isMenuEnabled(getMenuId(screen));
     }
 
     private static boolean useCurrentScreen(AbstractContainerScreen<?> screen) {
@@ -324,6 +345,8 @@ public final class TabManager {
         ScreenMouseEvents.allowMouseRelease(screen).register((s, x, y, button) -> allowMouseRelease(containerScreen, button));
         ScreenKeyboardEvents.allowKeyPress(screen).register((s, key, scancode, modifiers) -> allowKeyPress(key, scancode));
         ScreenEvents.remove(screen).register(s -> onScreenClose(s));
+        ScreenMouseEvents.allowMouseScroll(screen).register((s, x, y, h, v) ->
+                !TabOffsetEditor.handleMouseScrolled(containerScreen, x, y, v));
 
         currentScreen = containerScreen;
 
